@@ -1,0 +1,349 @@
+---
+title: "Parallel Programming in R"
+author: "Soroor Hediyeh-zadeh, on behalf of RLadies Melbourne"
+date: "14/03/2018"
+output: 
+  html_document:
+    toc: true
+    depth: 3
+    number_sections: true
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+> Welcome to the workshop. This RMarkdown file can be cloned from RLadies Melbourne Github repository https://github.com/R-LadiesMelbourne/2018-03-15_Parallelprogramming_in_R
+
+I have only included minimal text, so that you can add your own notes :-)
+Let's begin...
+
+# Vectorisation
+
+Many operations in R are vectorized, meaning that operations occur in parallel in certain R objects. You've already been using most of this vectorised operations in basic R data analysis.
+
+```{r}
+x <- 1:4
+y <- 6:9 
+z <- x + y
+z
+```
+
+
+```{r}
+x >= 2
+
+x-y
+
+x*y
+
+x/y
+```
+
+Similarly for matrices:
+
+```{r}
+
+x <- matrix(1:4, 2, 2)
+y <- matrix(rep(10, 4), 2, 2)
+
+## element-wise multiplication
+x * y 
+
+## true matrix multiplication
+x %*% y  
+```
+
+Also other functions such as:
+
+- `colSums()`
+- `rowSums()`
+- `colMeans()`
+- `rowMeans()`
+
+**matrixStats** package (CRAN) has some handy functions as well, such as `rowSds()` and `rowMedians()`.
+
+
+# `apply` family functions
+
+One of the very first advices I recieved about programming in R was **_not to use for loops_**! The common complain begin that ther are very slow as the task becomes more intensive computationally, or as the required number of iterations increase.
+
+## `lapply`
+
+The `lapply()` function does the following simple series of operations:
+
+- it loops over a list, iterating over each element in that list
+- it applies a function to each element of the list (a function that you specify)
+- and returns a list (the l is for “list”). see `?lapply`
+
+Example:
+```{r}
+x <- list(a = 1:5, b = rnorm(10))
+lapply(x, mean)
+```
+
+Functions in R can be used this way and can be passed back and forth as arguments just like any other object. When you pass a function to another function, you do not need to include the open and closed parentheses () like you do when you are calling a function.
+
+```{r}
+x <- 1:4
+lapply(x, runif, min = 0, max = 10)
+```
+
+You can also pass your own customized function to lapply trough the *FUN* argument:
+
+```{r}
+x <- list(a = matrix(1:4, 2, 2), b = matrix(1:6, 3, 2)) 
+x
+
+ f <- function(elt) {
+         elt[, 1]
+ }
+lapply(x, FUN=f)
+```
+
+## `sapply`
+
+The `sapply()` function behaves similarly to `lapply()`; the only real difference is in the return value. `sapply()` will try to simplify the result of `lapply()` if possible. Essentially, `sapply()` calls `lapply()` on its input and then applies the following algorithm:
+
+If the result is a list where every element is length 1, then a vector is returned
+
+If the result is a list where every element is a vector of the same length (> 1), a matrix is returned.
+
+If it can’t figure things out, a list is returned
+
+Here’s the result of calling lapply().
+
+```{r}
+x <- list(a = 1:4, b = rnorm(10), c = rnorm(20, 1), d = rnorm(100, 5))
+lapply(x, mean)
+sapply(x, mean) 
+```
+
+## `apply`
+
+The `apply()` function is used to a evaluate a function (often an anonymous one) over the margins of an array. It is most often used to apply a function to the rows or columns of a matrix (which is just a 2-dimensional array).
+
+The arguments to `apply()` are
+
+- `X` is an array
+- `MARGIN` is an integer vector indicating which margins should be “retained”.
+- `FUN` is a function to be applied
+- `...` is for other arguments to be passed to FUN
+
+See also `vapply()` and `replicate()`.
+
+Let's find the mean of rows and columns of a matrix using `apply()`
+
+```{r}
+x <- matrix(rnorm(200), 20, 10)
+apply(x, 2, mean)  ## Take the mean of each column
+apply(x, 1, sum)   ## Take the mean of each row
+```
+
+Recall for basic arithmatics vectorised functions such as `rowMeans()`, `colMeans()` etc are optimised and are much faster i.e 
+
+- rowSums = apply(x, 1, sum)
+- rowMeans = apply(x, 1, mean)
+- colSums = apply(x, 2, sum)
+- colMeans = apply(x, 2, mean)
+
+# `Reduce`, `Map`, `do.call`,`mapply`
+
+Very cool ( and useful of course) functions! 
+
+`Reduce` applies a function to a *pair of elements* in a list once at a time recursively. Say you have a list of 3 character vectors, and you would like to find the intersection of all three (i.e. find words that are common to all elements of the list) . 
+
+```{r}
+
+mylist <- list( 
+					 x2 = c("you", "are", "impressive", "women"),
+					 x3 = c("you", "are", "awsome", "impressive", "women"),
+					 x1 = c("RLadies","awsome","powerful","women","impressive",
+											"you","are")
+					 )
+
+Reduce(intersect, mylist)
+```
+so, `Reduce()` applies `intersect()` to `x1` and `x2` first (let's call this result), then finds the intersection of result and `x3`.
+
+`Map()`, instead, operates on one element of two lists/vectors `X` and `Y` at a time:
+```{r}
+Map(paste, c("arg","option","nah"), 1:3, sep="_")
+```
+
+Finally, `do.call` is a popular choice when one is interested a list of arguments to a function. So, say, you have a list of vectors, and you want to turn them into a data frame by binding them into columns (i.e. using `cbind()`)
+
+```{r}
+mylist <- list( 
+					 x2 = c("you", "are", "impressive", "women","RLadies"),
+					 x3 = c("you", "are", "awsome", "impressive", "women"),
+					 x1 = c("RLadies","awsome","powerful","women","impressive")
+					 )
+
+do.call(cbind, mylist)
+```
+
+
+Note they all return a list (except `do.call()` of course), and in all of them the function is specified first.
+
+`expand.grid()` is another extremely useful function that generates all possible combination of its arguments, a very handy function is simulation studies where we would like to apply a different combinations of parameters to a function. 
+
+```{r}
+n <- c(20,40,80)
+k <- c(4,2)
+rho <- c(0,0.5)
+
+p <- unique(as.vector(outer(n,k,"/")))
+alpha <- c(0,0.025*log(1/p)) #  a sequence of negative number converging to zero
+
+
+alpha
+
+
+## using expand.grid()
+
+params <- expand.grid(n,k,rho,alpha)
+colnames(params) <- c("n","k","rho","alpha")
+
+head(params, n = 10)
+```
+
+Once you generated the paramemter set that you require for your simulation study, you can use `mapply` to apply these parameters to the function of your interset (note we're still using one core and are not parallelizng anything)
+
+mapply is a multivariate version of sapply. It applies FUN to the first elements of each argument, the second elements, the third elements, and so on.
+
+
+```{r , eval=FALSE}
+
+run_sim <- function(n,k,rho,alpha, B=1000){
+	cat(paste("simulation for set ","n=",n,"k= ",k, "rho= ",rho, "alpha= ",alpha,"\n"))
+  # << functionBody>>
+}
+
+
+
+
+mapply(run_sim, params[,1],params[,2], params[,3], params[,4])
+#mapply(run_sim, params)
+```
+
+# `foreach`,`parallel` and `doParallel` packages
+
+Up until now, we have been discussing base R functions that are optimised for fast computation of tasks on a single core.
+
+Now, let's talk about some of the popular CRAN packages that are used to parallelize code on multiple cores on the computer. We start with `mclapply()` from package *parallel*.
+
+## `mclapply`
+
+`mclapply()` function from *parallel* package conceptually splits what might be a call to `lapply()` across multiple cores. Just to show how the function works, I’ll run some code that splits a job across 10 cores and then just sleeps for 10 seconds.
+
+```{r}
+library(parallel)
+r <- mclapply(1:10, function(i) {
+         Sys.sleep(10)  ## Do nothing for 10 seconds
+ }, mc.cores = 10)      ## Split this job across 10 cores
+```
+
+
+## The mighty `foreach`!
+
+*foreach* is similar to a for loop. It generally enhances processing speed and can be used both with a single core, or multiple cores. 
+
+`foreach()` has multiple arguments, see `?foreach` for complete description .Some of the (important) arguments to `foreach()` are:
+
+- `...` is the iterator i.e. number of times a process is executed
+- `.combine` is how the results of each iteration are combined (e.g. `cbind`, `c`, `rbind` etc)
+- `.final` is a function of single argument that execute tasks once the results from different iterations are aggregated
+- `.packages` is a character vector of package names that the internal functions in the foreach body depends on
+- `.export` character vector of variables to export. This can be useful when accessing a variable that isn't defined in the current environment.
+
+
+`.packages` and `.export` are only applicable if you're using foreach over multiple cores, as they make sure that the packages and the variables that the internal processes need are copied across each worker (core).
+
+So, in case of a single core we have
+
+```{r, eval=FALSE}
+foreach(obj, .combine, .final) %do% {ex}
+```
+
+
+In case of using mutiple cores (i.e. parallelizing)
+
+```{r, eval=FALSE}
+foreach(obj, .combine, .final, .packages ) %dopar% {ex}
+```
+
+Note if you are using foreach with %dopar%, you should initialize a cluster in R using `makeCluster(nCore)` in `parallel` package, where `nCore` here is the number of cores you want to initialze the cluster with. Every cluster connection that you setup with `makeCluster()` has to be registered via `registerDoParallel()`, and  closed/terminated with `stopCluster()` one foreach is done.
+
+
+## Example : MCMC sampling 
+
+In this example, I am sampling columns/variables from a dataframe object called `roboBohr`. The internal processes in the body of foreach assumes variables 'y','beta','roboBohr','n','p','M.mat','m0' and 'r' , which I have defined in the global environment, are accessible to the evaluation environment.
+I should therefore ensure that they are exported to the evaluation environment using `.export` argument.
+
+
+
+```{r, eval=FALSE}
+
+# note this is a partial code only.
+#
+#
+#
+# n cores available on the computer. Run n batch of 1000 MCMC sampling
+# through foreach, merge the models selected by each batch
+# decide n
+
+library(foreach)
+library(parallel)
+library(doParallel)
+
+nCore <- detectCores()
+ 
+#setup parallel backend to use 10 processors
+cl<-makeCluster(nCore)
+registerDoParallel(cl)
+
+r<- function(m)
+{
+ind <- as.logical(m)
+x.m <- roboBohr[ , ind]
+return(AIC(lm(y~ x.m)))
+}
+
+m0 <- sample(c(0,1), dim(roboBohr)[2], replace=TRUE) # the initial model
+r(m0)
+
+
+M.mat <- m0 # This will be a matrix collecting models
+iters <- 1e4
+n <- dim(roboBohr)[1]
+p <- dim(roboBohr)[2] 
+beta <- 1/2
+
+
+M.mat <-foreach(icount(iters), .combine = 'rbind', 
+                .export = c('y','beta','roboBohr','n','p','M.mat','m0','r')) %dopar% {
+     d.m <- sum(m0) # Dimension of current model
+     num_var_changed <- sample(1:p, 1) # randomly peak a number for the number of variables selected at a time
+     pos <- sample(1:p, num_var_changed) # Pick a variable at random
+     m1 <- m0 # Candidate model
+     m1[pos] <- 1 - m1[pos] # Include/exclude the selected variables
+     # Compute the ratio pi.m'/pi.m
+     a <- p ^ (d.m - sum(m1))
+     # Compute acceptance ratio
+     A <- a*exp(-beta*(r(m1) - r(m0)))* (1/num_var_changed)
+     # Accept/reject model
+     tau <- min(c(1,A))
+     Z <- sample(c(1, 0), 1, prob=c(tau, 1-tau))
+     if (Z == 1){m0 <- m1}
+     m0 # Update the list of sampled models 
+     
+    }
+ 
+
+stopCluster(cl)
+```
+
+
